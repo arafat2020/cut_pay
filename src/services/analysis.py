@@ -1,4 +1,5 @@
 """Analysis Service using Llama.cpp"""
+import os
 import json
 from typing import List, Dict, Any, Tuple
 from llama_cpp import Llama
@@ -12,7 +13,6 @@ class AnalysisService:
             model_path: Path to the GGUF model file
             n_ctx: Context window size
         """
-        import os
         if not os.path.exists(model_path):
             raise FileNotFoundError(f"Model not found at {model_path}. Please run ./setup_models.sh to download it.")
             

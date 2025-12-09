@@ -1,8 +1,9 @@
 """Highlight Generation API"""
 from fastapi import APIRouter, UploadFile, File, Form, HTTPException, BackgroundTasks
+import shutil
+import traceback
 from pathlib import Path
 from typing import Optional
-import shutil
 
 from src.services.video import VideoService
 from src.services.scene import SceneDetectionService
@@ -10,19 +11,13 @@ from src.services.transcription import TranscriptionService
 from src.services.analysis import AnalysisService
 from src.services.editor import EditingService
 from src.models.analysis import HighlightResponse
+from fastapi.responses import FileResponse
 
 router = APIRouter(tags=["highlight"])
-
-# Initialize services (Lazy loading or singleton pattern recommended for production)
-# For now, we'll initialize them here, but in a real app, use dependency injection
-# Note: Models should be downloaded/configured beforehand
-# transcription_service = TranscriptionService()
-# analysis_service = AnalysisService(model_path="path/to/model.gguf")
 
 DEFAULT_MODEL_PATH = "models/mistral-7b-instruct-v0.2.Q4_K_M.gguf"
 DEFAULT_WHISPER_MODEL = "base"
 
-from fastapi.responses import FileResponse
 import os
 
 # Global instance for Singleton pattern
@@ -105,6 +100,6 @@ async def process_video(
         # Cleanup on error if files exist
         if video_path and video_path.exists():
             os.remove(video_path)
-        import traceback
+        
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
