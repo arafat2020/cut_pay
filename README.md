@@ -103,4 +103,3 @@ curl -X POST "http://localhost:8000/highlight/process" \
 
 ---
 
-_Built with ❤️ by Arafat._
