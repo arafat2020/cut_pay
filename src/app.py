@@ -1,6 +1,6 @@
 """FastAPI application factory"""
 from fastapi import FastAPI
-from src.api.routes import health, main
+from src.api.routes import health, main, highlight
 
 
 def create_app() -> FastAPI:
@@ -14,5 +14,6 @@ def create_app() -> FastAPI:
     # Include routers
     app.include_router(main.router)
     app.include_router(health.router)
+    app.include_router(highlight.router)
     
     return app

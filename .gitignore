@@ -8,3 +8,21 @@ wheels/
 
 # Virtual environments
 .venv
+env/
+venv/
+
+# Environment variables
+.env
+
+# Large Media & Models
+models/
+videos/
+*.gguf
+*.mp4
+*.wav
+
+# IDE & System
+.DS_Store
+.idea/
+.vscode/
+*.log

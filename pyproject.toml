@@ -6,6 +6,10 @@ readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
     "fastapi>=0.124.0",
+    "faster-whisper>=1.2.1",
+    "llama-cpp-python>=0.3.16",
+    "python-multipart>=0.0.20",
+    "scenedetect[opencv]>=0.6.7.1",
     "uvicorn[standard]>=0.38.0",
 ]
 

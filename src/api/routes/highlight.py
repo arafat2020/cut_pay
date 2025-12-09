@@ -1,0 +1,110 @@
+"""Highlight Generation API"""
+from fastapi import APIRouter, UploadFile, File, Form, HTTPException, BackgroundTasks
+from pathlib import Path
+from typing import Optional
+import shutil
+
+from src.services.video import VideoService
+from src.services.scene import SceneDetectionService
+from src.services.transcription import TranscriptionService
+from src.services.analysis import AnalysisService
+from src.services.editor import EditingService
+from src.models.analysis import HighlightResponse
+
+router = APIRouter(tags=["highlight"])
+
+# Initialize services (Lazy loading or singleton pattern recommended for production)
+# For now, we'll initialize them here, but in a real app, use dependency injection
+# Note: Models should be downloaded/configured beforehand
+# transcription_service = TranscriptionService()
+# analysis_service = AnalysisService(model_path="path/to/model.gguf")
+
+DEFAULT_MODEL_PATH = "models/mistral-7b-instruct-v0.2.Q4_K_M.gguf"
+DEFAULT_WHISPER_MODEL = "base"
+
+from fastapi.responses import FileResponse
+import os
+
+# Global instance for Singleton pattern
+_analysis_service = None
+
+def get_analysis_service():
+    global _analysis_service
+    if _analysis_service is None:
+        print(f"Loading Analysis Model from {DEFAULT_MODEL_PATH}...")
+        _analysis_service = AnalysisService(model_path=DEFAULT_MODEL_PATH)
+        print("Analysis Model loaded.")
+    return _analysis_service
+
+@router.post("/highlight/process", response_class=FileResponse)
+async def process_video(
+    background_tasks: BackgroundTasks,
+    video: UploadFile = File(...),
+    target_duration: float = Form(30.0),
+    prompt: Optional[str] = Form(None)
+):
+    """
+    Process video to generate a highlight.
+    Returns the cut video file.
+    """
+    video_path = None
+    output_path = None
+    
+    try:
+        # 1. Save Video
+        video_path = await VideoService.save_upload(video)
+        
+        # 2. Detect Scenes
+        scene_service = SceneDetectionService()
+        scenes = scene_service.detect_scenes(video_path)
+        
+        # 3. Transcribe
+        transcription_service = TranscriptionService(model_size=DEFAULT_WHISPER_MODEL)
+        transcript = transcription_service.transcribe(video_path)
+        
+        if not transcript:
+            raise HTTPException(status_code=400, detail="No audio content found in video. Cannot generate highlight based on content.")
+        
+        # 4. Analyze
+        # Use singleton instance to avoid reloading model
+        analysis_service = get_analysis_service()
+        result = analysis_service.analyze_content(transcript, scenes, target_duration, user_prompt=prompt)
+        
+        # 5. Cut Video
+        if not result.highlights:
+            raise HTTPException(status_code=400, detail="No suitable highlight found.")
+            
+        highlight = result.highlights[0]
+        output_filename = f"highlight_{video_path.stem}.mp4"
+        output_path = video_path.parent / "output" / output_filename
+        
+        EditingService.cut_video(
+            video_path, 
+            highlight.start_time, 
+            highlight.end_time, 
+            output_path
+        )
+        
+        # 6. Prepare Cleanup
+        def cleanup_files():
+            if video_path and video_path.exists():
+                os.remove(video_path)
+            if output_path and output_path.exists():
+                os.remove(output_path)
+                
+        background_tasks.add_task(cleanup_files)
+        
+        # 7. Return Video
+        return FileResponse(
+            path=output_path, 
+            filename=output_filename,
+            media_type="video/mp4"
+        )
+
+    except Exception as e:
+        # Cleanup on error if files exist
+        if video_path and video_path.exists():
+            os.remove(video_path)
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
